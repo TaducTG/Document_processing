@@ -73,7 +73,8 @@ The platform ingests high-volume multi-format documents (PDF, DOCX, XLSX, Scanne
 ```bash
 docker compose up -d
 ```
-MinIO Console: [http://localhost:9001](http://localhost:9001) (User: `minioadmin` / Pass: `minioadminpassword`)
+MinIO Console: [http://localhost:9001](http://localhost:9001) 
+
 
 ### 3. Run Automated Tests
 ```bash
