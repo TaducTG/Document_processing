@@ -18,12 +18,11 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:latest
     container_name: doc_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -33,7 +32,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:latest
     container_name: doc_minio
     restart: unless-stopped
     ports:
@@ -42,6 +41,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadminpassword}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadminpassword}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -51,23 +52,7 @@ services:
       timeout: 5s
       retries: 3
 
-  minio-init:
-    image: minio/mc:latest
-    container_name: doc_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadminpassword;
-      /usr/bin/mc mb --ignore-existing local/raw-documents;
-      /usr/bin/mc mb --ignore-existing local/processed-output;
-      echo 'Default MinIO buckets created successfully.';
-      exit 0;
-      "
-
 volumes:
   pg_data:
   redis_data:
   minio_data:
-

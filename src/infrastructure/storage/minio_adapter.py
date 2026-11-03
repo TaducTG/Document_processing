@@ -31,6 +31,18 @@ class MinIOStorageService(StorageService):
     def _resolve_bucket(self, bucket_name: Optional[str]) -> str:
         return bucket_name or self.settings.S3_BUCKET_RAW
 
+    def ensure_buckets(self) -> None:
+        """Ensures that the default required buckets exist in the storage."""
+        for bucket in [self.settings.S3_BUCKET_RAW, self.settings.S3_BUCKET_PROCESSED]:
+            try:
+                self._client.head_bucket(Bucket=bucket)
+            except (ClientError, BotoCoreError):
+                try:
+                    self._client.create_bucket(Bucket=bucket)
+                    logger.info(f"Initialized S3 bucket: {bucket}")
+                except Exception as e:
+                    logger.warning(f"Could not initialize bucket {bucket}: {e}")
+
     def upload_file(
         self,
         file_obj: BinaryIO,
