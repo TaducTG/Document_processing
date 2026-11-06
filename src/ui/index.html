@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Document Processing Platform - Complex Document Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #60a5fa; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen py-10 px-4 md:px-8">
+
+  <div class="max-w-6xl mx-auto space-y-8">
+    
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-700/60 pb-6 gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-2 border border-blue-500/20">
+          <i class="fa-solid fa-microchip"></i> Enterprise Complex Document Engine
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Enterprise Document Processor</h1>
+        <p class="text-slate-400 text-sm mt-1">Hệ thống xử lý tài liệu phức tạp: Bảng biểu (Tables), Thực thể (Entities), Key-Values & MinIO Storage</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="http://localhost:9001" target="_blank" class="px-4 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-sm font-medium transition text-amber-300 border border-amber-500/30">
+          <i class="fa-solid fa-box-archive mr-2"></i> MinIO S3 Console
+        </a>
+        <a href="/docs" target="_blank" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-medium transition text-slate-300 border border-slate-700">
+          <i class="fa-solid fa-book mr-2"></i> Swagger Docs
+        </a>
+        <button onclick="fetchDocuments()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-medium transition text-white shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-rotate mr-2"></i> Làm Mới
+        </button>
+      </div>
+    </header>
+
+    <!-- Storage Location Info Banner -->
+    <div class="bg-blue-950/30 border border-blue-800/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
+      <div class="flex items-center gap-2.5">
+        <i class="fa-solid fa-circle-info text-blue-400 text-base"></i>
+        <span>
+          <b>Vị trí lưu trữ:</b> File nhị phân gốc lưu tại <code>MinIO S3 (bucket: raw-documents)</code> · Metadata & nội dung bóc tách lưu tại <code>PostgreSQL (JSONB)</code>
+        </span>
+      </div>
+      <a href="http://localhost:9001" target="_blank" class="text-blue-400 hover:underline flex items-center gap-1 font-semibold">
+        Mở MinIO Web Console (User: minioadmin / Pass: minioadminpassword) <i class="fa-solid fa-arrow-up-right-from-square"></i>
+      </a>
+    </div>
+
+    <!-- Upload Section -->
+    <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-6 md:p-8 shadow-xl">
+      <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+        <i class="fa-regular fa-file-pdf text-rose-400"></i> Tải Lên & Xử Lý Tài Liệu (PDF, Markdown, Word)
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">
+        Hỗ trợ tài liệu hợp đồng, hóa đơn, bảng báo giá: Bóc tách tự động <b>bảng biểu</b>, <b>ngày tháng</b>, <b>tiền tệ</b>, <b>mã số thuế</b>, <b>cặp khóa-giá trị</b> và lưu trữ vào PostgreSQL (JSONB).
+      </p>
+
+      <div id="drop-zone" class="border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-8 text-center cursor-pointer transition bg-slate-800/40 group">
+        <input type="file" id="file-input" accept=".pdf,.md,.txt,.docx" class="hidden">
+        <div class="space-y-3">
+          <div class="w-16 h-16 mx-auto rounded-full bg-slate-700/50 flex items-center justify-center text-blue-400 group-hover:scale-110 transition duration-200">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+          </div>
+          <div class="text-sm text-slate-300">
+            <span class="font-semibold text-blue-400 hover:underline">Nhấp để chọn file</span> hoặc kéo thả vào đây
+          </div>
+          <p class="text-xs text-slate-500">Định dạng hỗ trợ: <b>PDF (.pdf)</b>, <b>Markdown (.md)</b>, <b>Text (.txt)</b>, <b>Word (.docx)</b></p>
+        </div>
+      </div>
+
+      <!-- Selected File Info & Upload Action -->
+      <div id="upload-action" class="mt-4 hidden flex items-center justify-between p-4 bg-slate-750 rounded-xl border border-slate-700">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-file text-blue-400 text-xl"></i>
+          <div>
+            <p id="selected-filename" class="text-sm font-semibold text-white"></p>
+            <p id="selected-filesize" class="text-xs text-slate-400"></p>
+          </div>
+        </div>
+        <button id="upload-btn" onclick="submitUpload()" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold transition text-white flex items-center gap-2 shadow-lg shadow-emerald-600/20">
+          <i class="fa-solid fa-bolt"></i> Xử Lý Tài Liệu Ngay
+        </button>
+      </div>
+
+      <!-- Alert Message -->
+      <div id="alert-box" class="mt-4 hidden p-4 rounded-xl text-sm font-medium"></div>
+    </section>
+
+    <!-- Documents List Table -->
+    <section class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-6 md:p-8 shadow-xl">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-layer-group text-blue-400"></i> Danh Sách Tài Liệu Đã Tiếp Nhận
+          </h2>
+          <p class="text-slate-400 text-xs mt-1">Lưu trữ đồng bộ: Binary trên MinIO S3 & Metadata trên PostgreSQL</p>
+        </div>
+        <span id="doc-counter" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-700 text-slate-300">0 files</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 uppercase text-xs tracking-wider">
+              <th class="py-3 px-4">Tên File</th>
+              <th class="py-3 px-4">Định Dạng</th>
+              <th class="py-3 px-4">Dung Lượng</th>
+              <th class="py-3 px-4">Trạng Thái</th>
+              <th class="py-3 px-4">Thông Tin Đã Bóc Tách</th>
+              <th class="py-3 px-4">Thời Gian</th>
+              <th class="py-3 px-4 text-right">Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="documents-tbody" class="divide-y divide-slate-700/50 text-slate-300">
+            <tr>
+              <td colspan="7" class="py-8 text-center text-slate-500">Đang tải dữ liệu...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Document Detail Modal -->
+  <div id="detail-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <h3 id="modal-title" class="text-lg font-bold text-white">Chi Tiết Tài Liệu</h3>
+          <p id="modal-subtitle" class="text-xs text-slate-400 mt-0.5 font-mono"></p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs inside Modal -->
+      <div class="flex border-b border-slate-700 px-6 gap-6 text-sm text-slate-400">
+        <button class="tab-btn active py-3" onclick="switchTab('overview')"><i class="fa-solid fa-chart-pie mr-1.5"></i> Tổng Quan</button>
+        <button class="tab-btn py-3" onclick="switchTab('entities')"><i class="fa-solid fa-tags mr-1.5"></i> Thực Thể & Cặp Khóa-Giá Trị</button>
+        <button class="tab-btn py-3" onclick="switchTab('tables')"><i class="fa-solid fa-table mr-1.5"></i> Bảng Biểu (Tables)</button>
+        <button class="tab-btn py-3" onclick="switchTab('raw')"><i class="fa-solid fa-align-left mr-1.5"></i> Toàn Bộ Văn Bản</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-6 text-sm flex-1">
+        
+        <!-- Tab 1: Overview -->
+        <div id="tab-overview" class="space-y-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="modal-stats"></div>
+          
+          <div class="bg-slate-900/60 p-5 rounded-xl border border-slate-700/60 space-y-3">
+            <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Độ Tin Cậy Bóc Tách (Confidence Score)</h4>
+            <div class="flex items-center gap-4">
+              <div class="w-full bg-slate-700 rounded-full h-3">
+                <div id="confidence-bar" class="bg-emerald-500 h-3 rounded-full" style="width: 100%"></div>
+              </div>
+              <span id="confidence-text" class="text-sm font-bold text-white min-w-[50px]">100%</span>
+            </div>
+            <p id="confidence-desc" class="text-xs text-slate-400">Tài liệu có cấu trúc đầy đủ và độ tin cậy trích xuất cao.</p>
+          </div>
+
+          <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700/50 text-xs space-y-1">
+            <p class="text-slate-400"><b>Lưu trữ vật lý:</b> MinIO S3 Object Storage</p>
+            <p id="modal-storage-info" class="text-slate-300 font-mono"></p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Entities -->
+        <div id="tab-entities" class="space-y-6 hidden">
+          <div>
+            <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Cặp Khóa - Giá Trị (Key-Value Pairs)</h4>
+            <div id="entities-kvp" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Thực Thể Định Danh (Ngày Tháng, Số Tiền, Mã Số Thuế)</h4>
+            <div id="entities-pills" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Tables -->
+        <div id="tab-tables" class="space-y-6 hidden">
+          <div id="modal-tables-container" class="space-y-6"></div>
+        </div>
+
+        <!-- Tab 4: Raw Text -->
+        <div id="tab-raw" class="space-y-4 hidden">
+          <pre id="modal-content" class="bg-slate-900/90 p-4 rounded-xl border border-slate-700/60 text-slate-300 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer with Action Buttons -->
+      <div class="p-4 border-t border-slate-700 bg-slate-800/80 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button id="modal-reprocess-btn" onclick="modalReprocess()" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Trích Xuất Lại
+          </button>
+          <button id="modal-delete-btn" onclick="modalDelete()" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-trash-can"></i> Xoá Tài Liệu
+          </button>
+        </div>
+        <button onclick="closeModal()" class="px-5 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition text-white">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center gap-3 text-rose-400">
+        <div class="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Xác Nhận Xoá Tài Liệu</h3>
+          <p class="text-xs text-slate-400">Hành động này không thể hoàn tác</p>
+        </div>
+      </div>
+      <p class="text-sm text-slate-300">
+        Bạn có chắc chắn muốn xoá tài liệu <b id="confirm-doc-filename" class="text-white"></b>?
+      </p>
+      <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-700/60 text-xs text-slate-400">
+        <p>• File nhị phân sẽ bị xoá khỏi <b>MinIO S3 Bucket</b></p>
+        <p>• Bản ghi và toàn bộ metadata sẽ bị xoá khỏi <b>PostgreSQL</b></p>
+      </div>
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium text-slate-300 transition">Hủy</button>
+        <button id="confirm-delete-btn" onclick="executeDelete()" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg text-sm font-bold text-white transition flex items-center gap-2 shadow-lg shadow-rose-600/20">
+          <i class="fa-solid fa-trash"></i> Đồng Ý Xoá
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedFile = null;
+    let cachedDocuments = [];
+    let activeModalDocId = null;
+    let pendingDeleteDocId = null;
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadAction = document.getElementById('upload-action');
+    const selectedFilename = document.getElementById('selected-filename');
+    const selectedFilesize = document.getElementById('selected-filesize');
+    const alertBox = document.getElementById('alert-box');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-blue-500', 'bg-blue-500/5');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+      if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function handleFileSelect(file) {
+      if (!file) return;
+      selectedFile = file;
+      selectedFilename.textContent = file.name;
+      selectedFilesize.textContent = formatBytes(file.size);
+      uploadAction.classList.remove('hidden');
+      alertBox.classList.add('hidden');
+    }
+
+    async function submitUpload() {
+      if (!selectedFile) return;
+
+      const btn = document.getElementById('upload-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang Xử Lý & Bóc Tách...';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/api/v1/documents/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          showAlert(`Tải lên và bóc tách thành công tài liệu: <b>${data.filename}</b>`, 'success');
+          uploadAction.classList.add('hidden');
+          selectedFile = null;
+          fileInput.value = '';
+          fetchDocuments();
+        } else {
+          showAlert(`Lỗi xử lý: ${data.detail || 'Không thể upload'}`, 'error');
+        }
+      } catch (err) {
+        showAlert(`Lỗi mạng: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Xử Lý Tài Liệu Ngay';
+      }
+    }
+
+    function showAlert(msg, type) {
+      alertBox.innerHTML = msg;
+      alertBox.className = `mt-4 p-4 rounded-xl text-sm font-medium ${
+        type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+      }`;
+      alertBox.classList.remove('hidden');
+    }
+
+    async function fetchDocuments() {
+      const tbody = document.getElementById('documents-tbody');
+      try {
+        const res = await fetch('/api/v1/documents');
+        if (!res.ok) throw new Error('Không thể tải danh sách tài liệu');
+        const docs = await res.json();
+        cachedDocuments = docs;
+        document.getElementById('doc-counter').textContent = `${docs.length} files`;
+
+        if (docs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Chưa có tài liệu nào. Hãy thử tải lên 1 file PDF hoặc Markdown!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = docs.map(d => {
+          const meta = d.doc_metadata || {};
+          const ext = d.filename.split('.').pop().toUpperCase();
+          const statusBadge = d.status === 'COMPLETED' 
+            ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-check text-[10px]"></i> Hoàn tất</span>'
+            : '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-clock text-[10px]"></i> Đang chờ</span>';
+
+          const titleDisplay = meta.title ? `<span class="text-blue-400 font-medium truncate block max-w-xs">"${meta.title}"</span>` : 'N/A';
+          const pagesDisplay = meta.page_count ? `<span class="text-slate-400 text-xs">${meta.page_count} trang</span>` : '';
+          const tablesBadge = meta.has_tables ? `<span class="ml-1 text-[11px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">${meta.tables.length} bảng</span>` : '';
+
+          return `
+            <tr class="hover:bg-slate-750 transition">
+              <td class="py-3 px-4 font-medium text-white flex items-center gap-2">
+                <i class="fa-regular ${ext === 'PDF' ? 'fa-file-pdf text-rose-400' : 'fa-file-code text-blue-400'}"></i> 
+                <span class="truncate max-w-xs" title="${d.filename}">${d.filename}</span>
+              </td>
+              <td class="py-3 px-4 text-xs font-semibold text-slate-300">${ext}</td>
+              <td class="py-3 px-4 text-slate-400">${formatBytes(d.file_size_bytes)}</td>
+              <td class="py-3 px-4">${statusBadge}</td>
+              <td class="py-3 px-4 text-xs">
+                ${titleDisplay} ${pagesDisplay} ${tablesBadge}
+              </td>
+              <td class="py-3 px-4 text-slate-400 text-xs">${new Date(d.created_at).toLocaleString()}</td>
+              <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button onclick="viewDocument('${d.id}')" title="Xem chi tiết" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-200 transition">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                  <button onclick="reprocessDocument('${d.id}', event)" title="Trích xuất lại" class="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs font-medium transition">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                  </button>
+                  <button onclick="openConfirmDelete('${d.id}', '${d.filename.replace(/'/g, "\\'")}')" title="Xoá tài liệu" class="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-medium transition">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-rose-400">Lỗi: ${err.message}</td></tr>`;
+      }
+    }
+
+    function switchTab(tabId) {
+      ['overview', 'entities', 'tables', 'raw'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+      });
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      event.currentTarget.classList.add('active');
+    }
+
+    function viewDocument(docId) {
+      activeModalDocId = docId;
+      const doc = cachedDocuments.find(d => d.id === docId);
+      if (!doc) return;
+
+      const meta = doc.doc_metadata || {};
+      const entities = meta.entities || {};
+      const tables = meta.tables || [];
+
+      document.getElementById('modal-title').textContent = doc.filename;
+      document.getElementById('modal-subtitle').textContent = `Document ID: ${doc.id}`;
+      document.getElementById('modal-storage-info').textContent = `Path: ${doc.storage_path}`;
+
+      // Stats
+      const statsHtml = `
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+          <p class="text-slate-500 text-[11px] uppercase">Số Trang / Dòng</p>
+          <p class="text-lg font-bold text-white">${meta.page_count ? meta.page_count + ' trang' : (meta.line_count || 0) + ' dòng'}</p>
+        </div>
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+          <p class="text-slate-500 text-[11px] uppercase">Số Từ</p>
+          <p class="text-lg font-bold text-white">${meta.word_count || 0}</p>
+        </div>
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+          <p class="text-slate-500 text-[11px] uppercase">Bảng Biểu (Tables)</p>
+          <p class="text-lg font-bold text-blue-400">${tables.length} bảng</p>
+        </div>
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+          <p class="text-slate-500 text-[11px] uppercase">Dung Lượng</p>
+          <p class="text-lg font-bold text-white">${formatBytes(doc.file_size_bytes)}</p>
+        </div>
+      `;
+      document.getElementById('modal-stats').innerHTML = statsHtml;
+
+      // Confidence
+      const confScore = Math.round((meta.confidence_score || 1.0) * 100);
+      document.getElementById('confidence-bar').style.width = `${confScore}%`;
+      document.getElementById('confidence-text').textContent = `${confScore}%`;
+
+      // Key-Values
+      const kvps = entities.key_values || {};
+      const kvpKeys = Object.keys(kvps);
+      if (kvpKeys.length) {
+        document.getElementById('entities-kvp').innerHTML = kvpKeys.map(k => `
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+            <span class="text-xs font-semibold text-blue-400">${k}:</span>
+            <p class="text-sm text-slate-200 mt-0.5">${kvps[k]}</p>
+          </div>
+        `).join('');
+      } else {
+        document.getElementById('entities-kvp').innerHTML = '<span class="text-slate-500 text-xs italic">Không tìm thấy cặp Khóa-Giá trị rõ ràng.</span>';
+      }
+
+      // Entities Pills
+      let pills = [];
+      (entities.dates || []).forEach(d => pills.push(`<span class="px-2.5 py-1 rounded-full text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-regular fa-calendar mr-1"></i> ${d}</span>`));
+      (entities.currencies || []).forEach(c => pills.push(`<span class="px-2.5 py-1 rounded-full text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-money-bill-wave mr-1"></i> ${c.raw}</span>`));
+      (entities.tax_ids || []).forEach(t => pills.push(`<span class="px-2.5 py-1 rounded-full text-xs bg-purple-500/10 text-purple-300 border border-purple-500/20"><i class="fa-solid fa-building mr-1"></i> MST: ${t}</span>`));
+      (entities.emails || []).forEach(m => pills.push(`<span class="px-2.5 py-1 rounded-full text-xs bg-blue-500/10 text-blue-300 border border-blue-500/20"><i class="fa-regular fa-envelope mr-1"></i> ${m}</span>`));
+      document.getElementById('entities-pills').innerHTML = pills.length ? pills.join('') : '<span class="text-slate-500 text-xs italic">Không có thực thể định danh nào.</span>';
+
+      // Tables
+      if (tables.length) {
+        document.getElementById('modal-tables-container').innerHTML = tables.map((t, idx) => `
+          <div class="bg-slate-900/80 rounded-xl border border-slate-700/80 overflow-hidden">
+            <div class="p-3 bg-slate-800 border-b border-slate-700 text-xs font-semibold text-slate-300 flex justify-between">
+              <span>Bảng #${idx + 1} (Trang ${t.page})</span>
+              <span class="text-slate-500">${t.row_count} dòng, ${t.col_count} cột</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-850 text-slate-400 border-b border-slate-700">
+                    ${t.headers.map(h => `<th class="py-2.5 px-3 font-semibold">${h}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-slate-300">
+                  ${t.rows.map(r => `<tr>${r.map(c => `<td class="py-2 px-3">${c}</td>`).join('')}</tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        document.getElementById('modal-tables-container').innerHTML = '<span class="text-slate-500 text-xs italic">Tài liệu không có cấu trúc bảng biểu nào được phát hiện.</span>';
+      }
+
+      // Raw text preview
+      document.getElementById('modal-content').textContent = doc.extracted_text || 'Chưa có nội dung văn bản trích xuất.';
+
+      // Reset to first tab
+      switchTab('overview');
+      document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+      activeModalDocId = null;
+    }
+
+    // Modal action delegates
+    function modalDelete() {
+      if (!activeModalDocId) return;
+      const doc = cachedDocuments.find(d => d.id === activeModalDocId);
+      closeModal();
+      openConfirmDelete(activeModalDocId, doc ? doc.filename : 'này');
+    }
+
+    function modalReprocess() {
+      if (!activeModalDocId) return;
+      const docId = activeModalDocId;
+      closeModal();
+      reprocessDocument(docId);
+    }
+
+    // Reprocess action
+    async function reprocessDocument(docId, event) {
+      if (event) event.stopPropagation();
+      try {
+        showAlert('Đang kích hoạt pipeline trích xuất lại tài liệu...', 'success');
+        const res = await fetch(`/api/v1/documents/${docId}/reprocess`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showAlert(`Đã trích xuất lại thành công tài liệu: <b>${data.filename}</b>`, 'success');
+          fetchDocuments();
+        } else {
+          showAlert(`Lỗi khi trích xuất lại: ${data.detail || 'Thao tác thất bại'}`, 'error');
+        }
+      } catch (err) {
+        showAlert(`Lỗi mạng: ${err.message}`, 'error');
+      }
+    }
+
+    // Delete confirmation flow
+    function openConfirmDelete(docId, filename) {
+      pendingDeleteDocId = docId;
+      document.getElementById('confirm-doc-filename').textContent = `"${filename}"`;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      pendingDeleteDocId = null;
+    }
+
+    async function executeDelete() {
+      if (!pendingDeleteDocId) return;
+      const docId = pendingDeleteDocId;
+      const btn = document.getElementById('confirm-delete-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang Xoá...';
+
+      try {
+        const res = await fetch(`/api/v1/documents/${docId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          closeConfirmModal();
+          showAlert(`Đã xoá hoàn toàn tài liệu khỏi Storage và Database!`, 'success');
+          fetchDocuments();
+        } else {
+          showAlert(`Lỗi khi xoá: ${data.detail || 'Không thể xoá'}`, 'error');
+        }
+      } catch (err) {
+        showAlert(`Lỗi mạng: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-trash"></i> Đồng Ý Xoá';
+      }
+    }
+
+    // Initial load
+    fetchDocuments();
+  </script>
+</body>
+</html>
